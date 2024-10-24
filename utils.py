@@ -198,6 +198,12 @@ def set_random_seed(seed):
         torch.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
 
+def save_model(model, tokenizer, output_dir, model_name):
+    """模型保存，保存模型和对应的分词器"""
+    save_dir = os.path.join(output_dir, model_name)
+    model.save_pretrained(save_dir, torch_dtype=torch.float16)
+    tokenizer.save_pretrained(save_dir)
+
 def find_all_linear_names(model):
     """找到模型中所有的线性层"""
     cls = bnb.nn.Linear4bit
