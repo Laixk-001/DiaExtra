@@ -160,12 +160,17 @@ def print_trainable_parameters(model):
     """打印可训练的参数"""
     trainable_parameters = 0
     all_param = 0
+    # 返回生成器包含参数名称和参数值的元组
     for _, param in model.named_parameters():
+        # 计算该参数包含的元素数量（张量大小）
         num_params = param.numel()
+        # 检查该参数对象是否具有ds_numel属性
         if num_params == 0 and hasattr(param, "ds_numel"):
+            # 为了处理某些参数分布式存储的情况，ds_numel为该参数的实际大小
             num_params = param.ds_numel
         
         all_param += num_params
+        # 如果该参数是可以训练的
         if param.requires_grad:
             trainable_parameters += num_params
     print("trainable params:{} || all params: {} || trainable%: {}".format(trainable_parameters, all_param, 100 * trainable_parameters / all_param))
@@ -196,22 +201,31 @@ def set_random_seed(seed):
 def find_all_linear_names(model):
     """找到模型中所有的线性层"""
     cls = bnb.nn.Linear4bit
+    # 用于存储符合条件的线性层名称
     lora_module_names = set()
+    # 遍历模型所有的模块，返回模块名称及其名称的生成器
     for name, module in model.named_modules():
+        # 判断模块是否属于cls对应的类
         if isinstance(module,cls):
+            # 会分割成诸如：['layer1','linear']
             names = name.split('.')
             lora_module_names.add(names[0] if len(names) == 1 else names[-1])
+    # lm_head为模型的输出层，不是普通的线性层，要排除
     if 'lm_head' in lora_module_names:
         lora_module_names.remove('lm_head')
     return list(lora_module_names)
 
 def evaluation(model, eval_dataloader, device):
     """模型验证，计算验证集的PPL值"""
+    # 调整为评估模式，会禁用dropout等训练时特定的行为
     model.eval()
     total_loss = 0
+    # 获得当前的批次和数据，tqdm的单位为batch，总共有len(eval_dataloader)次
     for step, batch in tqdm(enumerate(eval_dataloader), total=len(eval_dataloader),unit="batch"):
         batch = to_device(batch, device)
+        # 不需要计算梯度，节省内存并加速
         with torch.no_grad():
+            # 将batch的参数传递给模型的前向函数
             outputs = model(**batch, use_cache=False)
             loss=outputs.loss
             total_loss += loss.float()
@@ -222,6 +236,7 @@ def evaluation(model, eval_dataloader, device):
     except OverflowError:
         perplexity = float("inf")
     
+    # 对PPL进行分布式的平均操作，并转换为python的标量
     try:
         perplexity = get_all_reduce_mean(perplexity).item()
     except:
@@ -230,6 +245,9 @@ def evaluation(model, eval_dataloader, device):
     return perplexity
 
 def get_all_reduce_mean(tensor):
+    """在分布式训练中计算tensor的全局平均值"""
+    # 分布式操作，将张量在所有设备上求和
     torch.distributed.all_reduce(tensor, op=torch.distributed.ReduceOp.SUM)
+    # 求和后的张量厨艺进程的总数，得到全局的平均值
     tensor = tensor / torch.distributed.get_world_size()
     return tensor
