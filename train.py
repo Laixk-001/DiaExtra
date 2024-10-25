@@ -67,8 +67,9 @@ def train():
         torch.cuda.set_device(args.local_rank)
         device = torch.device("cuda",args.local_rank)
         deepspeed.init_distributed()
+    # 获取当前进程的全局rank，用于区分主进程和辅助进程
     args.global_rank = torch.distributed.get_rank()
-    # 设置tensorboard，记录训练过程中的loss以及ppl
+    # 如果当前进程是主进程，则初始化SummaryWriter，记录训练过程中的loss以及ppl
     if args.global_rank <= 0:
         tb_write = SummaryWriter()
     # 设置随机种子
@@ -78,12 +79,15 @@ def train():
     tokenizer = QWenTokenizer.from_pretrained(args.model_name_or_path)
     tokenizer.pad_token_id = tokenizer.eod_id
     # 加载qwen模型
+    # device_map将模型映射到当前进程对应的GPU上
     device_map = {'': int(os.environ.get('LOCAL_RANK', '0'))}
     model_config = QWenConfig.from_pretrained(args.model_name_or_path)
+    # 启用4-bit量化减少计算开销
     quantization_config = BitsAndBytesConfig(load_in_4bit=True,
                                              bnb_4bit_compute_dtype=model_config.torch_dtype,bnb_4bit_use_double_quant=False,bnb_4bit_quant_type="nf4",llm_int8_threshold=6.0,llm_int8_has_fp16_weight=False)
     model = QWenLMHeadModel.from_pretrained(args.model_name_or_path,
                                             quantization_config=quantization_config,torch_dtype=model_config.torch_dtype,device_map=device_map)
+    # 以适应后续的低位量化训练，通常会冻结部分参数以减少计算开销
     model = prepare_model_for_kbit_training(model)
     # 找到模型中所有的全连接层
     lora_module_name = find_all_linear_names(model)
@@ -98,7 +102,7 @@ def train():
                         )
     model = get_peft_model(model,config)
     model.config.torch_dtype = torch.float32
-    #打印可训练参数
+    #打印可训练参数，确保只有指定模块参与训练
     for name, param in model.named_parameters():
         if param.requires_grad == True:
             print_rank_0(name, 0)
@@ -114,6 +118,7 @@ def train():
         train_sampler = DistributedSampler(train_dataset)
         test_sampler = DistributedSampler(test_dataset)
     
+    # DataCollator使用分词器进行数据的批处理，将单个样本打包成模型可接受的批次格式
     data_collator = DataCollator(tokenizer)
     train_dataloader = DataLoader(train_dataset,
                                    collate_fn=data_collator,
@@ -123,17 +128,21 @@ def train():
                                    collate_fn=data_collator,
                                    sampler=test_sampler,
                                    batch_size=args.per_device_train_batch_size)
+    # 仅在主进程中输出，检查数据加载是否正常
     print_rank_0("len(train_dataloader) = {}".format(len(train_dataloader)), args.global_rank)
     print_rank_0("len(train_dataset) = {}".format(len(train_dataset)), args.global_rank)
 
     # 加载DeepSpeed配置文件，并修改
     with open(args.ds_tile, "r", encoding="utf-8")as f:
         ds_config = json.load(f)
+        # 每个GPU的训练微批大小
     ds_config["train_micro_batch_size_per_gpu"] = args.per_device_train_batch_size
+        # 总训练批大小 = 微批 * GPU数量 * 梯度累积步数
     ds_config['train_batch_size'] = args.per_device_train_batch_size * torch.distribued.get_world_size() * args.gradient_accumulation_steps
     ds_config["gradient_accumulation_steps"] = args.gradient_accumulation_steps
     # load optimizer
     ds_config["optimizer"]["params"]["lr"] = args.learning_rate
+        # Adam的动量参数
     ds_config["optimizer"]["params"]["betas"] = (0.9, 0.95)
     ds_config["optimizer"]["params"]["eps"] = 1e-8
     ds_config["optimizer"]["params"]["weight_decay"] = 0.1    
@@ -141,6 +150,7 @@ def train():
     print_rank_0("num_training_steps = {}".format(num_training_steps), args.global_rank)
     num_warmup_steps = int(args.warmup_ratio * num_training_steps)
     print_rank_0("num_warmup_steps = {}".format(num_warmup_steps), args.global_rank)
+    # 在预热阶段会逐步增加学习率，从而避免初始学习率过大导致的不稳定训练
     ds_config["scheduler"]["params"]["total_num_steps"] = num_training_steps
     ds_config["scheduler"]["params"]["warmup_num_steps"] = num_warmup_steps
     ds_config["scheduler"]["params"]["warmup_max_lr"] = args.learning_rate
@@ -171,10 +181,12 @@ def train():
             # 获取训练结果
             outputs = model(**batch, use_cache=False)
             loss = outputs.loss
-            # 损失函数回传
+            # 损失函数反向传播，计算每个参数的梯度
             model.backward(loss)
             tr_loss += loss.items()
+            # 限制梯度的最大范数为1.0，避免梯度爆炸
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            # 更新模型参数
             model.step()
             # 当训练步数整除累积步数的时候，记录训练损失值和模型保存
             if (step + 1) % args.gradient_accumulation_steps == 0:
