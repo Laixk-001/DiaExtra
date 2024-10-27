@@ -19,12 +19,12 @@
 
 ## 数据处理
 
-数据预处理需要运行data_helper.py文件，会在data文件夹中生成训练集和测试集文件。
+数据预处理需要运行data_process.py文件，会在data文件夹中生成训练集和测试集文件。
 
 命令如下：
 
 ```shell
-python3 data_helper.py
+python3 data_process.py
 ```
 
 ## 模型微调
