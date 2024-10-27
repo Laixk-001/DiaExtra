@@ -60,7 +60,7 @@ CUDA_VISIBLE_DEVICES=0 deepspeed --master_port 5545 train.py --train_path data/t
 ```shell
 CUDA_VISIBLE_DEVICES=0,1,2,3 deepspeed --master_port 5545 train.py --train_path data/train.json  \
                                                                    --test_path data/test.json  \
-                                                                   --model_name_or_path Qwen-1_8-chat/  \
+                                                                   --model_name_or_path /root/autodl-fs/Qwen-1_8B-Chat/  \
                                                                    --per_device_train_batch_size 2  \
                                                                    --max_len 2048  \
                                                                    --max_src_len 1560  \
@@ -85,11 +85,11 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 deepspeed --master_port 5545 train.py --train_path 
 
 模型融合执行命令：
 ```shell
-python3 merge_params.py --ori_model_dir "Qwen-1_8-chat/" --model_dir "output_dir_qlora/epoch-3-step-906" --save_model_dir "output_dir_qlora/epoch-3-step-906-merge"
+python3 merge_params.py --ori_model_dir "/root/autodl-fs/Qwen-1_8B-Chat/" --model_dir "/root/auto-fs/DiaExtra/output_dir_qlora/epoch_1" --save_model_dir "/root/auto-fs/DiaExtra/output_dir_qlora/epoch_1"
 ```
 
 推理命令如下：
 
 ```shell
-python3 predict.py --device 0 --model_path "output_dir_qlora/epoch-3-step-906-merge" --max_tgt_len 512 --top_p 0.8  --temperature 0.8 --repetition_penalty 1.1
+python3 predict.py --device 0 --model_path "/root/auto-fs/DiaExtra/output_dir_qlora/epoch_1" --max_tgt_len 512 --top_p 0.8  --temperature 0.8 --repetition_penalty 1.1
 ```
