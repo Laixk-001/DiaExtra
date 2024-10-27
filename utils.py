@@ -99,8 +99,9 @@ class QwenPromptDataSet(Dataset):
         # 构建模型输出内容
         output_id = im_strat_tokens + self._tokenize_str("assistant", sample["output"])[1] + im_end_tokens
         # 当模型输出内容长度超过最大长度时， 向前截断
-        print("input_ids:",input_ids)
-        print("system_tokens:",system_tokens)
+        print("input_ids:",len(input_ids))
+        print("system_tokens:",len(system_tokens))
+        print("max_len:",self.max_len)
         max_tgt_len = self.max_len - len(input_ids) - len(system_tokens)
         if len(output_id) > max_tgt_len:
             output_id = output_id[:max_tgt_len - 1] + [output_id[-1]]
