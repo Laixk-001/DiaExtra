@@ -120,7 +120,7 @@ def train():
     # 加载模型训练所需要的数据，如果是多卡训练需要分布式加载数据
     train_dataset = QwenPromptDataSet(args.train_path, tokenizer, args.max_len,args.max_src_len,args.is_skip)
     test_dataset = QwenPromptDataSet(args.test_path, tokenizer, args.max_len,args.max_src_len,args.is_skip)
-    if args.loacal_rank == -1:
+    if args.local_rank == -1:
         train_sampler = RandomSampler(train_dataset)
         test_sampler = SequentialSampler(test_dataset)
     else:
