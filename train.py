@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument("--max_src_len",default=1024,type=int,help="")
     parser.add_argument("--is_skip",action="store_true",help="")
     # 训练配置
-    parser.add_argument("--pre_device_train_batch_size",default=16,type=int,help="")
+    parser.add_argument("--per_device_train_batch_size",default=16,type=int,help="")
     parser.add_argument("--learning_rate",default=1e-3,type=float,help="")
     parser.add_argument("--weight_decay",default=0.1,type=float,help="")
     parser.add_argument("--num_train_epochs",default=1,type=int,help="")
