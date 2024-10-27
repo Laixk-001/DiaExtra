@@ -142,7 +142,7 @@ def train():
     print_rank_0("len(train_dataset) = {}".format(len(train_dataset)), args.global_rank)
 
     # 加载DeepSpeed配置文件，并修改
-    with open(args.ds_tile, "r", encoding="utf-8")as f:
+    with open(args.ds_file, "r", encoding="utf-8")as f:
         ds_config = json.load(f)
         # 每个GPU的训练微批大小
     ds_config["train_micro_batch_size_per_gpu"] = args.per_device_train_batch_size
