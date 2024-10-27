@@ -192,7 +192,7 @@ def train():
             loss = outputs.loss
             # 损失函数反向传播，计算每个参数的梯度
             model.backward(loss)
-            tr_loss += loss.items()
+            tr_loss += loss.item()
             # 限制梯度的最大范数为1.0，避免梯度爆炸
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             # 更新模型参数
