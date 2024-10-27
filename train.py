@@ -147,7 +147,7 @@ def train():
         # 每个GPU的训练微批大小
     ds_config["train_micro_batch_size_per_gpu"] = args.per_device_train_batch_size
         # 总训练批大小 = 微批 * GPU数量 * 梯度累积步数
-    ds_config['train_batch_size'] = args.per_device_train_batch_size * torch.distribued.get_world_size() * args.gradient_accumulation_steps
+    ds_config['train_batch_size'] = args.per_device_train_batch_size * torch.distributed.get_world_size() * args.gradient_accumulation_steps
     ds_config["gradient_accumulation_steps"] = args.gradient_accumulation_steps
     # load optimizer
     ds_config["optimizer"]["params"]["lr"] = args.learning_rate
