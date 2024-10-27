@@ -26,8 +26,8 @@ class QwenPromptDataSet(Dataset):
             is_skip: 不符合长度标准的数据是否跳过
         """
         self.tokenizer = tokenizer
-        self.max_len = max_len
-        self.max_src_len = max_src_len
+        self.max_len = int(max_len)
+        self.max_src_len = int(max_src_len)
         self.is_skip = is_skip
         self.nl_tokens = self.tokenizer.encode("\n")
         self.all_data = self.load_data(data_path)
@@ -102,7 +102,7 @@ class QwenPromptDataSet(Dataset):
         # print("input_ids:",len(input_ids))
         # print("system_tokens:",len(system_tokens))
         # print("max_len:",self.max_len)
-        max_tgt_len = int(self.max_len) - len(input_ids) - len(system_tokens)
+        max_tgt_len = self.max_len - len(input_ids) - len(system_tokens)
         if len(output_id) > max_tgt_len:
             output_id = output_id[:max_tgt_len - 1] + [output_id[-1]]
             skip_flag = True
